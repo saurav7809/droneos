@@ -1,0 +1,172 @@
+# ═══════════════════════════════════════════════════════════════════
+# DroneOS — Production Docker Compose
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml logs -f
+# ═══════════════════════════════════════════════════════════════════
+
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-restart: &default-restart
+  restart: unless-stopped
+
+services:
+
+  # ── PostgreSQL (Production DB) ────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: drone-postgres
+    <<: *default-restart
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-dronedb}
+      POSTGRES_USER:     ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGDATA:            /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./deploy/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${POSTGRES_DB:-dronedb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - drone-internal
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  # ── Spring Boot Backend ───────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      cache_from:
+        - drone-backend:latest
+    image: drone-backend:${TAG:-latest}
+    container_name: drone-backend
+    <<: *default-restart
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL:  jdbc:postgresql://postgres:5432/${POSTGRES_DB:-dronedb}
+      DB_USERNAME:            ${DB_USERNAME:-postgres}
+      DB_PASSWORD:            ${DB_PASSWORD}
+      JWT_SECRET:             ${JWT_SECRET}
+      AI_SERVICE_URL:         http://ai-service:5000
+      TZ:                     ${TZ:-Asia/Kolkata}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - drone-internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+
+  # ── Python AI Service ─────────────────────────────────────────
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+      cache_from:
+        - drone-ai:latest
+    image: drone-ai:${TAG:-latest}
+    container_name: drone-ai
+    <<: *default-restart
+    environment:
+      PORT: "5000"
+      TZ:   ${TZ:-Asia/Kolkata}
+    networks:
+      - drone-internal
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  # ── React Frontend (Nginx) ────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_APP_VERSION: ${TAG:-dev}
+      cache_from:
+        - drone-frontend:latest
+    image: drone-frontend:${TAG:-latest}
+    container_name: drone-frontend
+    <<: *default-restart
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    networks:
+      - drone-internal
+      - drone-external
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+  # ── PgAdmin (Optional — remove in prod if not needed) ─────────
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: drone-pgadmin
+    profiles: ["debug"]   # Only starts with: docker compose --profile debug up
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    ${PGADMIN_EMAIL:-admin@droneos.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    networks:
+      - drone-internal
+    depends_on:
+      - postgres
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/postgres
+
+networks:
+  drone-internal:
+    driver: bridge
+    internal: true           # No direct internet access for backend/DB
+  drone-external:
+    driver: bridge            # Only frontend faces the internet

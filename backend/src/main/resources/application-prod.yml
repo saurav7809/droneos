@@ -1,0 +1,86 @@
+# ═══════════════════════════════════════════════════════════════
+# DroneOS — Production Application Configuration
+# Activated via: SPRING_PROFILES_ACTIVE=prod
+# ═══════════════════════════════════════════════════════════════
+
+spring:
+  application:
+    name: drone-backend
+
+  # ── PostgreSQL (production) ────────────────────────────────
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/dronedb}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    hikari:
+      minimum-idle: 2
+      maximum-pool-size: 10
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      pool-name: DroneOSPool
+
+  # ── JPA / Hibernate ────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: validate          # Never drop in production; use Flyway
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: public
+        jdbc:
+          lob:
+            non_contextual_creation: true
+
+  # ── Disable H2 console ─────────────────────────────────────
+  h2:
+    console:
+      enabled: false
+
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json,application/javascript,text/css
+  error:
+    include-stacktrace: never
+    include-message: never
+  # Security headers from Tomcat
+  tomcat:
+    max-threads: 200
+    accept-count: 100
+
+# ── JWT (override via environment variable!) ───────────────────
+jwt:
+  secret: ${JWT_SECRET:CHANGE_ME_IN_PRODUCTION_AT_LEAST_256_BITS_LONG}
+  expiration: 86400000   # 24 hours
+
+# ── AI Service ────────────────────────────────────────────────
+ai-service:
+  url: ${AI_SERVICE_URL:http://ai-service:5000}
+
+# ── Actuator health endpoints (for Docker health checks) ──────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    db:
+      enabled: true
+
+# ── Logging ───────────────────────────────────────────────────
+logging:
+  level:
+    com.droneos: INFO
+    org.springframework.security: WARN
+    org.springframework.web.socket: WARN
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%level] %logger{36} - %msg%n"

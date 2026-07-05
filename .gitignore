@@ -1,0 +1,40 @@
+# ── Secrets & Environment ─────────────────────────────────────
+.env
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+
+# ── Build artifacts ───────────────────────────────────────────
+backend/target/
+frontend/dist/
+frontend/node_modules/
+**/__pycache__/
+*.pyc
+*.class
+
+# ── Database & Data ───────────────────────────────────────────
+data/
+*.sql.bak
+*.dump
+
+# ── Logs ──────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── IDE ───────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+*.suo
+.DS_Store
+Thumbs.db
+
+# ── Docker ────────────────────────────────────────────────────
+.dockerignore
+
+# ── Java ──────────────────────────────────────────────────────
+*.jar
+*.war
+!backend/.mvn/**

@@ -1,0 +1,57 @@
+{
+  "name": "DroneOS — Autonomous Fleet Command",
+  "short_name": "DroneOS",
+  "description": "Real-time drone fleet management with AI-powered missions and live telemetry",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f1e",
+  "theme_color": "#00d4ff",
+  "orientation": "landscape-primary",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/dashboard",
+      "description": "Fleet overview and live telemetry"
+    },
+    {
+      "name": "Live Map",
+      "url": "/map",
+      "description": "Real-time GPS tracking"
+    },
+    {
+      "name": "Flight History",
+      "url": "/history",
+      "description": "Event logs and analytics"
+    }
+  ]
+}
