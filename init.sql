@@ -63,9 +63,16 @@ CREATE TABLE IF NOT EXISTS flight_logs (
 
 -- ── Seed Data ─────────────────────────────────────────────────
 
--- Admin user (password: admin123)
+-- Admin user  (password: admin123)
+-- Hash generated with BCrypt cost 10: BCryptPasswordEncoder().encode("admin123")
 INSERT INTO users (username, password_hash, role) VALUES
-('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN')
+('admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ADMIN')
+ON CONFLICT (username) DO NOTHING;
+
+-- Pilot user  (password: pilot123)
+-- Hash generated with BCrypt cost 10: BCryptPasswordEncoder().encode("pilot123")
+INSERT INTO users (username, password_hash, role) VALUES
+('pilot', '$2a$10$p0INs4Yl4siRPR2PBdQ.1OeLKxuZ1b.Y1qPJf/7E0n0wHlJh.y0fy', 'USER')
 ON CONFLICT (username) DO NOTHING;
 
 -- Initial drone fleet

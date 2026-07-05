@@ -39,7 +39,10 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        // Auth endpoints, WebSocket, H2 console (dev only)
                         .requestMatchers("/api/auth/**", "/ws/**", "/h2-console/**").permitAll()
+                        // Render health-check hits /actuator/health unauthenticated
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -53,23 +56,29 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Read allowed origins from env var (comma-separated)
-        // e.g. CORS_ALLOWED_ORIGINS=https://droneos.vercel.app,https://yourdomain.com
+        // CORS_ALLOWED_ORIGINS accepts comma-separated exact origins OR wildcard patterns.
+        // Wildcards (e.g. https://*.onrender.com) MUST use setAllowedOriginPatterns —
+        // setAllowedOrigins rejects them. We always use patterns for consistency.
+        //
+        // Set via env var on Render:
+        //   CORS_ALLOWED_ORIGINS=https://droneos-frontend.onrender.com,https://yourdomain.com
         String originsEnv = System.getenv("CORS_ALLOWED_ORIGINS");
-        List<String> origins;
+        List<String> patterns;
         if (originsEnv != null && !originsEnv.isBlank()) {
-            origins = List.of(originsEnv.split(","));
+            // Trim whitespace around each entry
+            patterns = List.of(originsEnv.split("\\s*,\\s*"));
         } else {
-            // Default: allow localhost for dev + all Vercel preview URLs
-            origins = List.of(
+            // Dev defaults — covers Vite dev server and common preview platforms
+            patterns = List.of(
                 "http://localhost:3000",
                 "http://localhost:5173",
-                "https://*.vercel.app",
                 "https://*.onrender.com",
+                "https://*.vercel.app",
                 "https://*.netlify.app"
             );
         }
-        config.setAllowedOriginPatterns(origins);
+        // allowedOriginPatterns supports wildcards AND exact origins
+        config.setAllowedOriginPatterns(patterns);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

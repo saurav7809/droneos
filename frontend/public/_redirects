@@ -1,0 +1,13 @@
+# Render Static Site — Redirect & Proxy Rules
+# These mirror the routes defined in render.yaml and act as a fallback.
+# Order matters: more specific rules must come before the SPA catch-all.
+
+# Proxy /api/* → Spring Boot backend
+/api/*  https://droneos-backend.onrender.com/api/:splat  200
+
+# Proxy /ai/*  → Python AI service
+/ai/*   https://droneos-ai.onrender.com/ai/:splat  200
+
+# SPA fallback — serve index.html for all other routes so
+# React Router handles client-side navigation
+/*  /index.html  200

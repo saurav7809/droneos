@@ -1,6 +1,16 @@
 # ═══════════════════════════════════════════════════════════════
 # render.yaml — Render.com Infrastructure as Code
-# Deploy everything FREE: Backend + AI Service + PostgreSQL
+# Deploys: PostgreSQL + Backend + AI Service + Frontend
+#
+# One-click deploy:
+#   1. Push this repo to GitHub
+#   2. Go to https://render.com/deploy and import the repo
+#   3. Render reads this file and wires everything up automatically
+#
+# Free-tier notes:
+#   - Services spin down after 15 min of inactivity (free plan)
+#   - PostgreSQL free tier expires after 90 days; upgrade to retain data
+#   - Build times are longer on free; first deploy takes ~5 min
 # ═══════════════════════════════════════════════════════════════
 
 databases:
@@ -9,6 +19,7 @@ databases:
     user: droneos
     plan: free
     region: oregon
+    postgresMajorVersion: 15
 
 services:
 
@@ -25,6 +36,7 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
+      # Render injects the internal connection string automatically
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
           name: droneos-db
@@ -37,10 +49,16 @@ services:
         fromDatabase:
           name: droneos-db
           property: password
+      # Auto-generated 256-bit secret — never changes between deploys
       - key: JWT_SECRET
         generateValue: true
+      # Updated after the frontend service is first deployed
+      # Format: https://droneos-frontend.onrender.com
+      # You can also add custom domains here comma-separated
       - key: CORS_ALLOWED_ORIGINS
-        value: https://droneos.vercel.app
+        value: https://droneos-frontend.onrender.com
+      - key: AI_SERVICE_URL
+        value: https://droneos-ai.onrender.com
 
   # ── Python AI Service ─────────────────────────────────────────
   - type: web
@@ -48,13 +66,64 @@ services:
     runtime: python
     plan: free
     region: oregon
+    rootDir: ai-service
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 60 --access-logfile - app:app
-    rootDir: ai-service
     healthCheckPath: /health
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      # Allow requests from both the frontend and the backend
       - key: CORS_ALLOWED_ORIGINS
-        value: https://droneos.vercel.app
+        value: https://droneos-frontend.onrender.com
+
+  # ── React Frontend (Static Site) ─────────────────────────────
+  # Render Static Sites build from source — no Docker, faster and free forever.
+  # The _redirects file (frontend/public/_redirects) handles:
+  #   - SPA fallback (all routes → index.html)
+  #   - /api/* → backend proxy
+  #   - /ai/*  → ai-service proxy
+  - type: web
+    name: droneos-frontend
+    runtime: static
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: true
+    autoDeploy: true
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+    routes:
+      # API calls proxy to the backend service
+      - type: rewrite
+        source: /api/*
+        destination: https://droneos-backend.onrender.com/api/:splat
+      # WebSocket upgrade — Render static sites can't proxy WS;
+      # the frontend connects directly to the backend URL for WebSocket
+      - type: rewrite
+        source: /ai/*
+        destination: https://droneos-ai.onrender.com/ai/:splat
+      # SPA fallback — must be last
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # Empty string → relative URLs → goes through Render's own proxy routes above
+      - key: VITE_API_BASE_URL
+        value: ""
+      - key: VITE_AI_BASE_URL
+        value: ""
+      # WebSocket must be absolute because browsers can't proxy WS via fetch rewrites
+      - key: VITE_WS_BASE_URL
+        value: https://droneos-backend.onrender.com

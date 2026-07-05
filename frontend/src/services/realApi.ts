@@ -9,9 +9,10 @@ import * as mock from './mockApi';
 
 // ─── Environment-aware base URLs ────────────────────────────────
 // In dev: falls back to localhost via Vite proxy
-// In production: set VITE_API_BASE_URL and VITE_AI_BASE_URL on your host
-const BASE_URL  = import.meta.env.VITE_API_BASE_URL  || 'http://localhost:8080';
-const AI_URL    = import.meta.env.VITE_AI_BASE_URL   || 'http://localhost:5000';
+// In production (Docker): use empty string so requests go to same origin (Nginx proxy)
+const isDevMode = import.meta.env.DEV;
+const BASE_URL  = import.meta.env.VITE_API_BASE_URL  ?? (isDevMode ? 'http://localhost:8080' : '');
+const AI_URL    = import.meta.env.VITE_AI_BASE_URL   ?? (isDevMode ? 'http://localhost:5000' : '');
 const HEALTH_TIMEOUT = 3000;
 
 // ─── Backend availability detection ──────────────────────────
