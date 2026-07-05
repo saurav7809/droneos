@@ -84,7 +84,9 @@ class DroneSimulator:
         drone = self.drones[drone_id]
         self._simulate_step(drone)
         result = asdict(drone)
-        result["camera_image"] = self._generate_camera_image(drone)
+        camera_image, detections = self._generate_camera_image(drone)
+        result["camera_image"] = camera_image
+        result["detections"] = detections
         return result
 
     def get_all_states(self) -> List[dict]:
@@ -173,9 +175,10 @@ class DroneSimulator:
             cv2.putText(img, f"GPS: {drone.latitude:.4f}N {drone.longitude:.4f}E", (10, 38),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 200, 200), 1)
 
-            # Detection boxes (simulated)
+            # Detection boxes (simulated) — also return as structured data
             num_detections = random.randint(0, 4)
             labels = ["Person", "Vehicle", "Tree", "Building", "Fire"]
+            detections = []
             for _ in range(num_detections):
                 dx = random.randint(50, 550)
                 dy = random.randint(50, 380)
@@ -187,10 +190,16 @@ class DroneSimulator:
                 cv2.rectangle(img, (dx, dy), (dx + dw, dy + dh), color, 2)
                 cv2.putText(img, f"{label} {conf:.0%}", (dx, dy - 5),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 1)
+                # bbox as [x, y, w, h] — consistent with vision.py output
+                detections.append({
+                    "label": label,
+                    "confidence": round(conf, 3),
+                    "bbox": [dx, dy, dw, dh],
+                })
 
             # Encode to base64
             _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-            return base64.b64encode(buffer).decode('utf-8')
+            return base64.b64encode(buffer).decode('utf-8'), detections
 
         except Exception as e:
-            return ""
+            return "", []

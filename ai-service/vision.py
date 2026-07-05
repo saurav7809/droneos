@@ -47,7 +47,7 @@ class VisionService:
             return self._mock_detect(None)
 
     def _yolo_detect(self, image: Image.Image) -> list:
-        """Run real YOLO detection."""
+        """Run real YOLO detection. Returns detections with bbox as [x, y, w, h]."""
         import numpy as np
         img_array = np.array(image)
         results = self.model(img_array, verbose=False)
@@ -58,18 +58,22 @@ class VisionService:
                 conf = float(box.conf[0])
                 if conf < 0.4:
                     continue
-                xyxy = box.xyxy[0].tolist()
+                # xyxy → xywh so the frontend can use left/top/width/height directly
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
                 label = COCO_LABELS_OF_INTEREST.get(cls_id, r.names.get(cls_id, "Object"))
                 detections.append({
                     "label": label,
                     "confidence": round(conf, 3),
-                    "bbox": [round(x) for x in xyxy],
+                    "bbox": [round(x1), round(y1), round(x2 - x1), round(y2 - y1)],
                     "cls_id": cls_id,
                 })
         return detections
 
     def _mock_detect(self, image) -> list:
-        """Generate realistic mock detections when YOLO is unavailable."""
+        """Generate realistic mock detections when YOLO is unavailable.
+        bbox format: [x, y, w, h] — top-left origin, width, height.
+        Image assumed to be 800×600 (matches frontend scaleX/scaleY baseline).
+        """
         import random
         num = random.randint(1, 5)
         detections = []
@@ -83,7 +87,7 @@ class VisionService:
             detections.append({
                 "label": label,
                 "confidence": conf,
-                "bbox": [x, y, x + w, y + h],
+                "bbox": [x, y, w, h],   # xywh — NOT xyxy
                 "cls_id": -1,
                 "mock": True,
             })

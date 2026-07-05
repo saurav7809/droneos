@@ -148,9 +148,29 @@ export const realApi = {
     }));
   },
 
-  // Images (AI service or mock)
+  // Images (real AI service camera feed, or mock fallback)
   getImages: async (): Promise<DroneImage[]> => {
-    return mock.api.getImages(); // AI service optional
+    try {
+      const res = await axios.get(`${AI_URL}/ai/images`, { timeout: 4000 });
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data.map((img: any) => ({
+          id: img.id,
+          droneId: img.droneId,
+          imageUrl: img.imageUrl,
+          prediction: img.prediction ?? 'None',
+          confidence: img.confidence ?? 0,
+          timestamp: typeof img.timestamp === 'number'
+            ? new Date(img.timestamp * 1000).toISOString()
+            : img.timestamp ?? new Date().toISOString(),
+          detections: (img.detections ?? []).map((d: any) => ({
+            label: d.label,
+            confidence: d.confidence,
+            bbox: d.bbox as [number, number, number, number],
+          })),
+        }));
+      }
+    } catch { /* fall through to mock */ }
+    return mock.api.getImages();
   },
 
   // AI decisions

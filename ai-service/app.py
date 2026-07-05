@@ -36,7 +36,7 @@ def health():
         "status": "ok",
         "service": "DroneOS AI Service",
         "version": "1.1.0",
-        "endpoints": ["/health", "/ai/detect", "/ai/decision", "/ai/simulate", "/ai/simulate/all", "/ai/weather"]
+        "endpoints": ["/health", "/ai/detect", "/ai/decision", "/ai/simulate", "/ai/simulate/all", "/ai/weather", "/ai/camera/<id>", "/ai/images"]
     })
 
 # ── Object Detection ─────────────────────────────────────────────
@@ -104,13 +104,38 @@ def get_camera(drone_id: int):
     """Generate and return a synthetic aerial camera frame for a drone."""
     try:
         state = simulator.step(drone_id)
-        image_b64 = state.get("camera_image", "")
         return jsonify({
             "droneId": drone_id,
-            "image": image_b64,
+            "image": state.get("camera_image", ""),
+            "detections": state.get("detections", []),
             "timestamp": state.get("last_updated"),
         })
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── All drone images (for CameraFeed page) ───────────────────────
+@app.route("/ai/images", methods=["GET"])
+def get_all_images():
+    """Return camera frames + detections for all 6 drones in one call."""
+    try:
+        images = []
+        for drone_id in range(1, 7):
+            state = simulator.step(drone_id)
+            detections = state.get("detections", [])
+            images.append({
+                "id": drone_id,
+                "droneId": drone_id,
+                # Base64 data URI so the frontend can use it as an <img src>
+                "imageUrl": f"data:image/jpeg;base64,{state.get('camera_image', '')}",
+                "prediction": detections[0]["label"] if detections else "None",
+                "confidence": detections[0]["confidence"] if detections else 0.0,
+                "timestamp": state.get("last_updated"),
+                "detections": detections,
+            })
+        return jsonify(images)
+    except Exception as e:
+        logger.error(f"Images error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
