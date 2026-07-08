@@ -36,11 +36,19 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      # Render injects the internal connection string automatically
-      - key: SPRING_DATASOURCE_URL
+      # Pass individual DB properties for Spring Boot JDBC URL
+      - key: DB_HOST
         fromDatabase:
           name: droneos-db
-          property: connectionString
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: droneos-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: droneos-db
+          property: database
       - key: DB_USERNAME
         fromDatabase:
           name: droneos-db
