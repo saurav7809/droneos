@@ -61,16 +61,18 @@ jwt:
 ai-service:
   url: ${AI_SERVICE_URL:http://ai-service:5000}
 
-# ── Actuator health endpoints (for Docker health checks) ──────
+# ── Actuator health endpoints (for Render health checks) ──────
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info
       base-path: /actuator
   endpoint:
     health:
-      show-details: when_authorized
+      # "always" lets Render's unauthenticated health-check probe see {"status":"UP"}
+      # without this the probe gets 401 and Render marks the service as unhealthy
+      show-details: always
   health:
     db:
       enabled: true

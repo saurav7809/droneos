@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -33,6 +33,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-droneos-super-secret-key-minimum-256-bits-long-for-hmac-sha}
       AI_SERVICE_URL: http://ai-service:5000
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/dronedb
+      SPRING_PROFILES_ACTIVE: prod
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,6 +56,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_AI_BASE_URL: ""
     container_name: drone-frontend
     ports:
       - "3000:80"

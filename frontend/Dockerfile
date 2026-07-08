@@ -10,8 +10,12 @@ RUN npm ci --prefer-offline
 COPY . .
 ARG VITE_API_URL=/api
 ARG VITE_WS_URL=/ws
+ARG VITE_API_BASE_URL=""
+ARG VITE_AI_BASE_URL=""
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_WS_URL=$VITE_WS_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_AI_BASE_URL=$VITE_AI_BASE_URL
 RUN npm run build
 
 # ─── Stage 2: Production Nginx ────────────────────────────────

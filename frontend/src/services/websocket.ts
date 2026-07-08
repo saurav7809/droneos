@@ -58,7 +58,8 @@ function notifyAlerts(alerts: BackendAlert[]) {
 export function connectWebSocket() {
   if (stompClient?.connected) return;
 
-  const WS_URL = import.meta.env.VITE_WS_BASE_URL || 'http://localhost:8080';
+  const isDevMode = import.meta.env.DEV;
+  const WS_URL = import.meta.env.VITE_WS_BASE_URL ?? (isDevMode ? 'http://localhost:8080' : '');
   stompClient = new Client({
     webSocketFactory: () => new SockJS(`${WS_URL}/ws`),
     reconnectDelay: 5000,

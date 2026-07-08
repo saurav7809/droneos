@@ -192,3 +192,86 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --no-deps frontend ai-service
             docker image prune -f
             echo "✅ Deployed DroneOS $TAG to production"
+
+  # ── Deploy to Render ──────────────────────────────────────────
+  # Runs on every push to main after tests pass.
+  # Render redeploys automatically when it detects a push via the GitHub
+  # integration, but using deploy hooks gives us explicit control and lets
+  # us wait for health confirmation inside the pipeline.
+  #
+  # Required GitHub secrets (Settings → Secrets → Actions):
+  #   RENDER_DEPLOY_HOOK_BACKEND  — Render dashboard → droneos-backend  → Settings → Deploy Hook URL
+  #   RENDER_DEPLOY_HOOK_AI       — Render dashboard → droneos-ai       → Settings → Deploy Hook URL
+  #   RENDER_DEPLOY_HOOK_FRONTEND — Render dashboard → droneos-frontend → Settings → Deploy Hook URL
+  deploy-render:
+    name: 🚀 Deploy to Render
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: render
+
+    steps:
+      - name: Trigger backend deploy
+        run: |
+          echo "Triggering droneos-backend deploy..."
+          curl -sf --retry 3 -X POST "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}"
+          echo " ✓ backend hook fired"
+
+      - name: Trigger AI service deploy
+        run: |
+          echo "Triggering droneos-ai deploy..."
+          curl -sf --retry 3 -X POST "${{ secrets.RENDER_DEPLOY_HOOK_AI }}"
+          echo " ✓ AI service hook fired"
+
+      - name: Trigger frontend deploy
+        run: |
+          echo "Triggering droneos-frontend deploy..."
+          curl -sf --retry 3 -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}"
+          echo " ✓ frontend hook fired"
+
+      # Poll the backend health endpoint until it reports UP or we time out.
+      # Free-tier Render services can take up to 10 minutes to build + boot.
+      - name: Wait for backend to be healthy
+        timeout-minutes: 12
+        run: |
+          echo "Waiting for backend health check..."
+          until curl -sf https://droneos-backend.onrender.com/actuator/health \
+                | grep -q '"status":"UP"'; do
+            echo "  still starting… ($(date -u +%H:%M:%S))"
+            sleep 20
+          done
+          echo "✅ Backend is UP"
+
+      - name: Wait for AI service to be healthy
+        timeout-minutes: 10
+        run: |
+          echo "Waiting for AI service health check..."
+          until curl -sf https://droneos-ai.onrender.com/health \
+                | grep -q '"status":"ok"'; do
+            echo "  still starting… ($(date -u +%H:%M:%S))"
+            sleep 20
+          done
+          echo "✅ AI service is UP"
+
+      - name: Verify frontend is reachable
+        timeout-minutes: 5
+        run: |
+          echo "Waiting for frontend..."
+          until curl -sf -o /dev/null https://droneos-frontend.onrender.com; do
+            echo "  still deploying… ($(date -u +%H:%M:%S))"
+            sleep 15
+          done
+          echo "✅ Frontend is UP"
+
+      - name: Print deployment summary
+        run: |
+          echo ""
+          echo "╔══════════════════════════════════════════════════╗"
+          echo "║         DroneOS deployed to Render.com           ║"
+          echo "╠══════════════════════════════════════════════════╣"
+          echo "║  Frontend  → https://droneos-frontend.onrender.com ║"
+          echo "║  Backend   → https://droneos-backend.onrender.com  ║"
+          echo "║  AI Svc    → https://droneos-ai.onrender.com       ║"
+          echo "╚══════════════════════════════════════════════════╝"
+          echo "  Commit: ${{ github.sha }}"
+          echo "  Actor:  ${{ github.actor }}"
