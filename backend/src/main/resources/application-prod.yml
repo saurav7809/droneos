@@ -24,7 +24,11 @@ spring:
   # ── JPA / Hibernate ────────────────────────────────────────
   jpa:
     hibernate:
-      ddl-auto: validate          # Never drop in production; use Flyway
+      ddl-auto: update          # Set to update for initial Render deploy
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
     show-sql: false
     open-in-view: false
     properties:
@@ -40,7 +44,7 @@ spring:
       enabled: false
 
 server:
-  port: 8080
+  port: ${PORT:8080}
   compression:
     enabled: true
     mime-types: application/json,application/javascript,text/css
