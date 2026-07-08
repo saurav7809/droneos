@@ -22,4 +22,4 @@ COPY --from=builder /app/target/*.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom -Dspring.datasource.url=\"jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:dronedb}?sslmode=require\" -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom -Dspring.datasource.url=\"jdbc:postgresql://${DB_HOST:-localhost}:${DB_PORT:-5432}/${DB_NAME:-dronedb}?sslmode=require\" -jar app.jar"]
