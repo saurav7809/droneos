@@ -40,7 +40,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         // Auth endpoints, WebSocket, H2 console (dev only)
-                        .requestMatchers("/api/auth/**", "/ws/**", "/h2-console/**").permitAll()
+                        .requestMatchers("/", "/api/auth/**", "/ws/**", "/h2-console/**").permitAll()
                         // Render health-check hits /actuator/health unauthenticated
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .anyRequest().authenticated()
