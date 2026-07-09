@@ -85,13 +85,15 @@ INSERT INTO drones (name, status, battery, latitude, longitude, speed, altitude,
 ('Drone-06', 'Flying',    74, 28.6220, 77.2080, 10.5,  95.0, 'Delivery')
 ON CONFLICT (name) DO NOTHING;
 
--- Sample missions
-INSERT INTO missions (drone_id, mission_type, start_location, destination, status, altitude, speed, distance, start_time) VALUES
-(1, 'Mapping',          'Base Alpha',    'Sector 7-G',      'Active',    110, 12.4, 4.2,  NOW() - INTERVAL '18 minutes'),
-(2, 'Crop Monitoring',  'Farm HQ',       'Field Block 3',   'Active',     85,  8.1, 2.8,  NOW() - INTERVAL '32 minutes'),
-(5, 'Surveillance',     'Command Center','Perimeter East',  'Completed',  60, 15.0, 8.4,  NOW() - INTERVAL '90 minutes'),
-(3, 'Delivery',         'Warehouse',     'Customer Site A', 'Completed',  80, 12.0, 12.1, NOW() - INTERVAL '180 minutes')
-ON CONFLICT DO NOTHING;
+-- Sample missions (only insert if drones table exists and missions is empty)
+INSERT INTO missions (drone_id, mission_type, start_location, destination, status, altitude, speed, distance, start_time)
+SELECT * FROM (VALUES
+  (1::BIGINT, 'Mapping',          'Base Alpha',     'Sector 7-G',       'Active',    110::DOUBLE PRECISION, 12.4::DOUBLE PRECISION, 4.2::DOUBLE PRECISION,  NOW() - INTERVAL '18 minutes'),
+  (2::BIGINT, 'Crop Monitoring',  'Farm HQ',        'Field Block 3',    'Active',     85::DOUBLE PRECISION,  8.1::DOUBLE PRECISION, 2.8::DOUBLE PRECISION,  NOW() - INTERVAL '32 minutes'),
+  (5::BIGINT, 'Surveillance',     'Command Center', 'Perimeter East',   'Completed',  60::DOUBLE PRECISION, 15.0::DOUBLE PRECISION, 8.4::DOUBLE PRECISION,  NOW() - INTERVAL '90 minutes'),
+  (3::BIGINT, 'Delivery',         'Warehouse',      'Customer Site A',  'Completed',  80::DOUBLE PRECISION, 12.0::DOUBLE PRECISION, 12.1::DOUBLE PRECISION, NOW() - INTERVAL '180 minutes')
+) AS v(drone_id, mission_type, start_location, destination, status, altitude, speed, distance, start_time)
+WHERE NOT EXISTS (SELECT 1 FROM missions LIMIT 1);
 
 -- Sample flight logs
 INSERT INTO flight_logs (drone_id, action, type, timestamp) VALUES

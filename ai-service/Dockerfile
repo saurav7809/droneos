@@ -21,13 +21,13 @@ FROM deps AS runtime
 COPY --chown=droneos:droneos . .
 USER droneos
 
-EXPOSE 5000
+EXPOSE 10000
 
-HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+  CMD python -c "import urllib.request, os; urllib.request.urlopen(f\"http://localhost:{os.environ.get('PORT','10000')}/health\")" || exit 1
 
-# Use gunicorn for production (multi-worker WSGI)
-CMD ["python", "-m", "gunicorn", "--bind", "0.0.0.0:5000", \
-     "--workers", "2", "--threads", "4", \
-     "--timeout", "60", "--access-logfile", "-", \
-     "app:app"]
+# Use shell form so $PORT is expanded at runtime (Render injects PORT env var)
+CMD gunicorn --bind "0.0.0.0:${PORT:-10000}" \
+     --workers 2 --threads 4 \
+     --timeout 60 --access-logfile - \
+     app:app
