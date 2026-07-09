@@ -66,7 +66,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ALLOWED_ORIGINS
-        value: https://droneos-frontend.onrender.com
+        value: https://droneos-frontend.onrender.com,https://droneos-9.onrender.com,http://localhost:3000
       - key: AI_SERVICE_URL
         value: https://droneos-ai.onrender.com
 
@@ -115,25 +115,16 @@ services:
         name: X-Content-Type-Options
         value: nosniff
     routes:
-      # API calls proxy to the backend service
-      - type: rewrite
-        source: /api/*
-        destination: https://droneos-backend.onrender.com/api/:splat
-      # WebSocket upgrade — Render static sites can't proxy WS;
-      # the frontend connects directly to the backend URL for WebSocket
-      - type: rewrite
-        source: /ai/*
-        destination: https://droneos-ai.onrender.com/ai/:splat
-      # SPA fallback — must be last
+      # SPA fallback — all unmatched routes serve index.html (required for React Router)
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
-      # Empty string → relative URLs → goes through Render's own proxy routes above
+      # Point directly at the live backend — avoids broken proxy redirect for POST/CORS
       - key: VITE_API_BASE_URL
-        value: ""
+        value: https://droneos-9.onrender.com
       - key: VITE_AI_BASE_URL
-        value: ""
-      # WebSocket must be absolute because browsers can't proxy WS via fetch rewrites
+        value: https://droneos-ai.onrender.com
+      # WebSocket must be absolute (browsers can't proxy WS)
       - key: VITE_WS_BASE_URL
-        value: https://droneos-backend.onrender.com
+        value: https://droneos-9.onrender.com
