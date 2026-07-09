@@ -7,22 +7,16 @@ spring:
   application:
     name: drone-backend
 
-  # ── PostgreSQL (production) ─────────────────────────────────────────
-  # Set ONE env var in Render dashboard (Environment tab):
-  #
-  #   Key:   SPRING_DATASOURCE_URL
-  #   Value: jdbc:postgresql://dpg-xxxxxxx-a:5432/dronedb_2yay
-  #
-  # How to get it: droneos-db → Connections → Internal Database URL
-  #   postgres://user:pass@dpg-xxx-a:5432/dronedb  →  change prefix to jdbc:postgresql://
-  #
-  # Spring Boot automatically maps SPRING_DATASOURCE_URL → spring.datasource.url
-  # The fallback below only applies when running locally without that env var.
+  # ── PostgreSQL ────────────────────────────────────────────────
+  # RenderDatabaseUrlPostProcessor (runs before this file is read) will
+  # automatically convert any postgres:// or postgresql:// URL set in
+  # SPRING_DATASOURCE_URL to the correct jdbc:postgresql://host:5432/db
+  # format.  These YAML values are only used as LOCAL dev fallbacks.
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:dronedb}}
     driver-class-name: org.postgresql.Driver
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    username: ${DB_USERNAME:${spring.datasource.username:postgres}}
+    password: ${DB_PASSWORD:${spring.datasource.password:postgres}}
     hikari:
       minimum-idle: 2
       maximum-pool-size: 10
@@ -31,10 +25,10 @@ spring:
       connection-timeout: 30000
       pool-name: DroneOSPool
 
-  # ── JPA / Hibernate ────────────────────────────────────────
+  # ── JPA / Hibernate ───────────────────────────────────────
   jpa:
     hibernate:
-      ddl-auto: update          # Set to update for initial Render deploy
+      ddl-auto: update
     defer-datasource-initialization: true
     show-sql: false
     open-in-view: false
