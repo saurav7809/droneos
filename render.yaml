@@ -36,7 +36,12 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      # Pass individual DB properties for Spring Boot JDBC URL
+      # ── Database connection (wired automatically from droneos-db) ──
+      # DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD are injected
+      # by Render's Blueprint engine via the fromDatabase references below.
+      # If you deployed services manually (not via Blueprint), you MUST
+      # set these env vars manually in the Render dashboard:
+      #   Dashboard → droneos-backend → Environment → Add Env Var
       - key: DB_HOST
         fromDatabase:
           name: droneos-db
@@ -60,9 +65,6 @@ services:
       # Auto-generated 256-bit secret — never changes between deploys
       - key: JWT_SECRET
         generateValue: true
-      # Updated after the frontend service is first deployed
-      # Format: https://droneos-frontend.onrender.com
-      # You can also add custom domains here comma-separated
       - key: CORS_ALLOWED_ORIGINS
         value: https://droneos-frontend.onrender.com
       - key: AI_SERVICE_URL

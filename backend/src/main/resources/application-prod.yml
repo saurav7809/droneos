@@ -8,8 +8,13 @@ spring:
     name: drone-backend
 
   # ── PostgreSQL (production) ────────────────────────────────
+  # DB_URL must be set in Render as a full JDBC URL:
+  #   jdbc:postgresql://<host>:<port>/<dbname>
+  # Set via Render dashboard: Environment → Add env var
+  # Key: DB_URL
+  # Value: copy "Internal Database URL" from droneos-db, replace postgres:// with jdbc:postgresql://
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:dronedb}
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:dronedb}}
     driver-class-name: org.postgresql.Driver
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
