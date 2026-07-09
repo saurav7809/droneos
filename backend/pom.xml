@@ -52,7 +52,7 @@
       <scope>runtime</scope>
     </dependency>
 
-    <!-- H2 In-Memory DB (dev/test — no install needed) -->
+    <!-- H2 In-Memory DB (local dev only — excluded from production fat JAR via plugin config below) -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
@@ -111,9 +111,15 @@
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
           <excludes>
+            <!-- Lombok: annotation processor only, not needed at runtime -->
             <exclude>
               <groupId>org.projectlombok</groupId>
               <artifactId>lombok</artifactId>
+            </exclude>
+            <!-- H2: local dev only, never ship to production (prod uses PostgreSQL) -->
+            <exclude>
+              <groupId>com.h2database</groupId>
+              <artifactId>h2</artifactId>
             </exclude>
           </excludes>
         </configuration>

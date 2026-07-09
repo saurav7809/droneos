@@ -14,7 +14,7 @@ spring:
   # format.  These YAML values are only used as LOCAL dev fallbacks.
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:dronedb}}
-    driver-class-name: org.postgresql.Driver
+    driver-class-name: org.postgresql.Driver   # explicitly force PostgreSQL — never H2
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     hikari:
