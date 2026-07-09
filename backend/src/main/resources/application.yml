@@ -2,10 +2,12 @@ spring:
   application:
     name: drone-backend
 
-  # ── H2 in-memory for dev (no PostgreSQL needed) ──
+  # ── DataSource ───────────────────────────────────────────────
+  # Local default: H2 in-memory. On Render, DATABASE_URL overrides this via
+  # RenderDatabaseUrlPostProcessor (which also forces the PostgreSQL driver).
+  # driver-class-name is intentionally omitted — Spring auto-detects from URL.
   datasource:
     url: jdbc:h2:mem:dronedb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
     username: sa
     password:
 
@@ -20,8 +22,9 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+        # dialect intentionally omitted — Hibernate auto-detects from the driver
         format_sql: false
+
 
 server:
   port: 8080

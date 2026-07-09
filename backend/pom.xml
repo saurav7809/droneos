@@ -52,7 +52,8 @@
       <scope>runtime</scope>
     </dependency>
 
-    <!-- H2 In-Memory DB (local dev only — excluded from production fat JAR via plugin config below) -->
+    <!-- H2 In-Memory DB (local dev only — safe to keep in fat JAR, driver won't be
+         used in prod because application-prod.yml overrides the driver-class-name) -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
@@ -115,11 +116,6 @@
             <exclude>
               <groupId>org.projectlombok</groupId>
               <artifactId>lombok</artifactId>
-            </exclude>
-            <!-- H2: local dev only, never ship to production (prod uses PostgreSQL) -->
-            <exclude>
-              <groupId>com.h2database</groupId>
-              <artifactId>h2</artifactId>
             </exclude>
           </excludes>
         </configuration>

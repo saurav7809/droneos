@@ -38,14 +38,24 @@ public class RenderDatabaseUrlPostProcessor implements EnvironmentPostProcessor 
             rawUrl = environment.getProperty("DATABASE_URL");
         }
 
-        if (rawUrl == null || rawUrl.startsWith("jdbc:")) {
-            // Already correct format or not set — nothing to do
+        // Nothing configured at all — local H2 dev mode, nothing to do
+        if (rawUrl == null) {
             return;
         }
 
-        // Convert postgres:// or postgresql:// -> jdbc:postgresql://host:port/db
-        String jdbcUrl = toJdbcUrl(rawUrl);
-        if (jdbcUrl == null) return;
+        String jdbcUrl;
+        if (rawUrl.startsWith("jdbc:postgresql://") || rawUrl.startsWith("jdbc:postgres://")) {
+            // Already a valid JDBC URL — use as-is, but still need to force
+            // the driver and activate the prod profile below
+            jdbcUrl = rawUrl;
+        } else if (!rawUrl.startsWith("jdbc:")) {
+            // Convert postgres:// or postgresql:// → jdbc:postgresql://host:port/db
+            jdbcUrl = toJdbcUrl(rawUrl);
+            if (jdbcUrl == null) return;
+        } else {
+            // Some other jdbc: URL (e.g. jdbc:h2:) — not our concern
+            return;
+        }
 
         Map<String, Object> props = new HashMap<>();
         props.put("spring.datasource.url", jdbcUrl);
