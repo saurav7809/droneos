@@ -3,13 +3,19 @@ spring:
     name: drone-backend
 
   # ── DataSource ───────────────────────────────────────────────
-  # Local default: H2 in-memory. On Render, DATABASE_URL overrides this via
-  # RenderDatabaseUrlPostProcessor (which also forces the PostgreSQL driver).
-  # driver-class-name is intentionally omitted — Spring auto-detects from URL.
+  # Local default: H2 in-memory (PostgreSQL compatibility mode enabled so
+  # data.sql with PostgreSQL syntax works). On Render, DATABASE_URL overrides
+  # this via RenderDatabaseUrlPostProcessor.
   datasource:
-    url: jdbc:h2:mem:dronedb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:dronedb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
     username: sa
     password:
+
+  # Run data.sql only for embedded databases (H2 local dev).
+  # RenderDatabaseUrlPostProcessor sets this to 'never' for production.
+  sql:
+    init:
+      mode: embedded
 
   h2:
     console:
