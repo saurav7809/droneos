@@ -6,6 +6,7 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,7 +20,12 @@ import java.util.Map;
  * Spring Boot / HikariCP requires:
  *   jdbc:postgresql://host:port/database  (credentials via separate properties)
  *
- * This processor handles both env var names and fixes them transparently.
+ * This processor also:
+ *  - Forces spring.datasource.driver-class-name to org.postgresql.Driver
+ *  - Activates the "prod" Spring profile if not already active
+ *
+ * This makes the app self-healing: even if SPRING_PROFILES_ACTIVE=prod is
+ * not set in Render's environment variables, the correct config loads.
  */
 public class RenderDatabaseUrlPostProcessor implements EnvironmentPostProcessor {
 
@@ -37,12 +43,17 @@ public class RenderDatabaseUrlPostProcessor implements EnvironmentPostProcessor 
             return;
         }
 
-        // Convert postgres:// or postgresql:// → jdbc:postgresql://host:port/db
+        // Convert postgres:// or postgresql:// -> jdbc:postgresql://host:port/db
         String jdbcUrl = toJdbcUrl(rawUrl);
         if (jdbcUrl == null) return;
 
         Map<String, Object> props = new HashMap<>();
         props.put("spring.datasource.url", jdbcUrl);
+
+        // Force the correct driver — prevents H2 from being picked when it is
+        // on the classpath (e.g. during local 'mvn spring-boot:run' with the
+        // DATABASE_URL env var accidentally set).
+        props.put("spring.datasource.driver-class-name", "org.postgresql.Driver");
 
         // Extract credentials from the URL if not already set separately
         try {
@@ -69,9 +80,19 @@ public class RenderDatabaseUrlPostProcessor implements EnvironmentPostProcessor 
         environment.getPropertySources()
                 .addFirst(new MapPropertySource("renderDatabaseUrl", props));
 
+        // Activate the "prod" profile if it isn't already active.
+        // This ensures application-prod.yml (PostgreSQL dialect, ddl-auto=update,
+        // etc.) is loaded even when SPRING_PROFILES_ACTIVE is not set on Render.
+        boolean prodAlreadyActive = Arrays.asList(environment.getActiveProfiles()).contains("prod");
+        if (!prodAlreadyActive) {
+            environment.addActiveProfile("prod");
+            System.out.println("[RenderDatabaseUrlPostProcessor] Activated 'prod' profile automatically.");
+        }
+
         System.out.printf("[RenderDatabaseUrlPostProcessor] Converted datasource URL%n"
                 + "  From: %s%n"
-                + "  To:   %s%n",
+                + "  To:   %s%n"
+                + "  Driver: org.postgresql.Driver%n",
                 maskCredentials(rawUrl), jdbcUrl);
     }
 
