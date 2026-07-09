@@ -14,20 +14,28 @@ import java.util.Map;
  * Converts Render.com's postgres:// / postgresql:// DATABASE URL format
  * into a valid Spring Boot JDBC URL before any beans are created.
  *
- * Render provides DATABASE_URL / SPRING_DATASOURCE_URL in the format:
- *   postgres://user:password@host:port/database
+ * IMPORTANT — Why we set JPA/Hibernate properties here instead of relying on
+ * application-prod.yml:
  *
- * Spring Boot / HikariCP requires:
- *   jdbc:postgresql://host:port/database  (credentials via separate properties)
+ *   EnvironmentPostProcessors run AFTER ConfigDataEnvironmentPostProcessor has
+ *   already loaded all YAML files.  Calling environment.addActiveProfile("prod")
+ *   here is too late to cause application-prod.yml to be re-read.  Therefore we
+ *   must directly inject every property that application-prod.yml would have set.
  *
- * This processor also:
- *  - Forces spring.datasource.driver-class-name to org.postgresql.Driver
- *  - Activates the "prod" Spring profile if not already active
- *
- * This makes the app self-healing: even if SPRING_PROFILES_ACTIVE=prod is
- * not set in Render's environment variables, the correct config loads.
+ * Properties injected when a PostgreSQL URL is detected:
+ *   - spring.datasource.url              (converted JDBC URL)
+ *   - spring.datasource.driver-class-name (org.postgresql.Driver)
+ *   - spring.datasource.username / password (extracted from URL if embedded)
+ *   - spring.jpa.database-platform       (PostgreSQLDialect)
+ *   - spring.jpa.hibernate.ddl-auto      (update)
+ *   - spring.jpa.show-sql                (false)
+ *   - spring.sql.init.mode               (never)
+ *   - spring.h2.console.enabled          (false)
  */
 public class RenderDatabaseUrlPostProcessor implements EnvironmentPostProcessor {
+
+    private static final String PG_DRIVER   = "org.postgresql.Driver";
+    private static final String PG_DIALECT  = "org.hibernate.dialect.PostgreSQLDialect";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment,
@@ -38,41 +46,52 @@ public class RenderDatabaseUrlPostProcessor implements EnvironmentPostProcessor 
             rawUrl = environment.getProperty("DATABASE_URL");
         }
 
-        // Nothing configured at all — local H2 dev mode, nothing to do
+        // Nothing configured — local H2 dev mode, nothing to do
         if (rawUrl == null) {
             return;
         }
 
         String jdbcUrl;
         if (rawUrl.startsWith("jdbc:postgresql://") || rawUrl.startsWith("jdbc:postgres://")) {
-            // Already a valid JDBC URL — use as-is, but still need to force
-            // the driver and activate the prod profile below
+            // Already a valid PostgreSQL JDBC URL — use as-is
             jdbcUrl = rawUrl;
         } else if (!rawUrl.startsWith("jdbc:")) {
             // Convert postgres:// or postgresql:// → jdbc:postgresql://host:port/db
             jdbcUrl = toJdbcUrl(rawUrl);
             if (jdbcUrl == null) return;
         } else {
-            // Some other jdbc: URL (e.g. jdbc:h2:) — not our concern
+            // Some other jdbc: URL (e.g. jdbc:h2:) — not a PostgreSQL URL, skip
             return;
         }
 
         Map<String, Object> props = new HashMap<>();
-        props.put("spring.datasource.url", jdbcUrl);
 
-        // Force the correct driver — prevents H2 from being picked when it is
-        // on the classpath (e.g. during local 'mvn spring-boot:run' with the
-        // DATABASE_URL env var accidentally set).
-        props.put("spring.datasource.driver-class-name", "org.postgresql.Driver");
+        // ── DataSource ─────────────────────────────────────────────────────
+        props.put("spring.datasource.url",              jdbcUrl);
+        props.put("spring.datasource.driver-class-name", PG_DRIVER);
 
-        // Extract credentials from the URL if not already set separately
+        // ── Hibernate / JPA ─────────────────────────────────────────────────
+        // Set these explicitly because addActiveProfile("prod") is too late to
+        // re-trigger loading of application-prod.yml.
+        props.put("spring.jpa.database-platform",              PG_DIALECT);
+        props.put("spring.jpa.properties.hibernate.dialect",   PG_DIALECT);
+        props.put("spring.jpa.hibernate.ddl-auto",             "update");
+        props.put("spring.jpa.show-sql",                       "false");
+        props.put("spring.jpa.open-in-view",                   "false");
+        props.put("spring.jpa.defer-datasource-initialization", "true");
+        props.put("spring.jpa.properties.hibernate.default_schema", "public");
+
+        // ── Disable H2 console in production ────────────────────────────────
+        props.put("spring.h2.console.enabled", "false");
+        props.put("spring.sql.init.mode",      "never");
+
+        // ── Extract credentials embedded in the URL ──────────────────────────
         try {
-            URI uri = new URI(rawUrl);
+            URI uri = new URI(rawUrl.replaceFirst("^postgresql://", "postgres://"));
             String userInfo = uri.getUserInfo();
             if (userInfo != null && !userInfo.isEmpty()) {
                 String[] parts = userInfo.split(":", 2);
                 if (parts.length == 2) {
-                    // Only set if not already defined as separate env vars
                     if (environment.getProperty("DB_USERNAME") == null
                             && environment.getProperty("spring.datasource.username") == null) {
                         props.put("spring.datasource.username", parts[0]);
@@ -84,26 +103,26 @@ public class RenderDatabaseUrlPostProcessor implements EnvironmentPostProcessor 
                 }
             }
         } catch (Exception ignored) {
-            // If URI parsing fails, credentials stay from env vars
+            // URI parse failure — credentials will come from separate env vars
         }
 
+        // Highest-priority property source — overrides application.yml and
+        // application-prod.yml for any keys we set above.
         environment.getPropertySources()
-                .addFirst(new MapPropertySource("renderDatabaseUrl", props));
+                .addFirst(new MapPropertySource("renderPostgresConfig", props));
 
-        // Activate the "prod" profile if it isn't already active.
-        // This ensures application-prod.yml (PostgreSQL dialect, ddl-auto=update,
-        // etc.) is loaded even when SPRING_PROFILES_ACTIVE is not set on Render.
+        // Activate the prod profile (best-effort: effective for any beans that
+        // query active profiles, though YAML re-loading won't be triggered).
         boolean prodAlreadyActive = Arrays.asList(environment.getActiveProfiles()).contains("prod");
         if (!prodAlreadyActive) {
             environment.addActiveProfile("prod");
-            System.out.println("[RenderDatabaseUrlPostProcessor] Activated 'prod' profile automatically.");
         }
 
-        System.out.printf("[RenderDatabaseUrlPostProcessor] Converted datasource URL%n"
-                + "  From: %s%n"
-                + "  To:   %s%n"
-                + "  Driver: org.postgresql.Driver%n",
-                maskCredentials(rawUrl), jdbcUrl);
+        System.out.printf("[RenderDatabaseUrlPostProcessor] PostgreSQL datasource configured%n"
+                + "  URL:    %s%n"
+                + "  Driver: %s%n"
+                + "  Dialect:%s%n",
+                jdbcUrl, PG_DRIVER, PG_DIALECT);
     }
 
     /**
@@ -112,17 +131,12 @@ public class RenderDatabaseUrlPostProcessor implements EnvironmentPostProcessor 
      */
     private String toJdbcUrl(String raw) {
         try {
-            // Normalise scheme so java.net.URI can parse it
-            String normalized = raw
-                    .replaceFirst("^postgresql://", "postgres://");
-
-            URI uri = new URI(normalized);
+            String normalized = raw.replaceFirst("^postgresql://", "postgres://");
+            URI uri  = new URI(normalized);
             String host = uri.getHost();
             int    port = uri.getPort() == -1 ? 5432 : uri.getPort();
             String path = uri.getPath(); // e.g. "/dronedb"
-
             if (host == null || path == null || path.isEmpty()) return null;
-
             return String.format("jdbc:postgresql://%s:%d%s", host, port, path);
         } catch (Exception e) {
             System.err.println("[RenderDatabaseUrlPostProcessor] Failed to parse URL: " + e.getMessage());
