@@ -11,11 +11,11 @@ spring:
     username: sa
     password:
 
-  # Run data.sql only for embedded databases (H2 local dev).
-  # RenderDatabaseUrlPostProcessor sets this to 'never' for production.
+  # DataSeeder.java (CommandLineRunner) handles all seeding for both local H2 and
+  # production PostgreSQL — data.sql is disabled to avoid H2 ON CONFLICT syntax errors.
   sql:
     init:
-      mode: embedded
+      mode: never
 
   h2:
     console:

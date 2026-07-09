@@ -1,2 +1,3 @@
-org.springframework.boot.env.EnvironmentPostProcessor=\
-  com.droneos.config.RenderDatabaseUrlPostProcessor
+# Spring Boot 3.x uses META-INF/spring/org.springframework.boot.env.EnvironmentPostProcessor.imports
+# instead of spring.factories. That file already exists — this file is intentionally left empty
+# to prevent the RenderDatabaseUrlPostProcessor from being registered twice.
