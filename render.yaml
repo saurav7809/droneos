@@ -94,11 +94,9 @@ services:
   #   - SPA fallback (all routes → index.html)
   #   - /api/* → backend proxy
   #   - /ai/*  → ai-service proxy
-  - type: web
+  - type: static
     name: droneos-frontend
-    runtime: static
     plan: free
-    region: oregon
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
